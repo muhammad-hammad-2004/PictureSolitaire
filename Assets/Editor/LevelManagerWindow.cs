@@ -2,6 +2,8 @@ using UnityEditor;
 using UnityEngine;
 using System.IO;
 using System.Collections.Generic;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Settings;
 
 public class LevelManagerWindow : EditorWindow
 {
@@ -42,7 +44,6 @@ public class LevelManagerWindow : EditorWindow
         if (config == null) Load();
         hoverIndex = -1;
 
-        // ===== TOP: Total Levels (SAFE) =====
         totalField = EditorGUILayout.IntField("Total Levels", totalField);
         totalField = Mathf.Clamp(totalField, 0, 10000);
 
@@ -71,7 +72,6 @@ public class LevelManagerWindow : EditorWindow
             EditorGUILayout.EndHorizontal();
         }
 
-        // ===== NEW: Auto-Assign Difficulty =====
         EditorGUILayout.Space(4);
         EditorGUILayout.HelpBox(
             "Auto-assign pattern:\n" +
@@ -88,9 +88,7 @@ public class LevelManagerWindow : EditorWindow
             Repaint();
         }
         EditorGUILayout.Space(4);
-        // ===== END NEW =====
 
-        // ===== TOP: Chapter Reveal Images =====
         EditorGUILayout.Space(4);
         EditorGUILayout.LabelField("Chapter Reveal Images", EditorStyles.boldLabel);
 
@@ -104,14 +102,23 @@ public class LevelManagerWindow : EditorWindow
         {
             int start = i * 25 + 1;
             int end = Mathf.Min(config.levels.Count, (i + 1) * 25);
-            config.chapterImages[i] = (Texture2D)EditorGUILayout.ObjectField(
+
+            string curAddr = (i < config.chapterAddresses.Count) ? config.chapterAddresses[i] : "";
+            Texture2D cur = string.IsNullOrEmpty(curAddr) ? null : AssetDatabase.LoadAssetAtPath<Texture2D>(curAddr);
+            Texture2D picked = (Texture2D)EditorGUILayout.ObjectField(
                 "Chapter " + (i + 1) + "  (Level " + start + "-" + end + ")",
-                config.chapterImages[i], typeof(Texture2D), false);
+                cur, typeof(Texture2D), false);
+
+            if (picked != cur)
+            {
+                while (config.chapterAddresses.Count <= i) config.chapterAddresses.Add("");
+                config.chapterAddresses[i] = (picked != null) ? AssetDatabase.GetAssetPath(picked) : "";
+                EnsureAddressable(picked, "Chapters");
+            }
         }
 
         EditorGUILayout.Space(6);
 
-        // ===== LEVELS (scroll + block drag) =====
         scroll = EditorGUILayout.BeginScrollView(scroll);
         for (int i = 0; i < config.levels.Count; i++)
             DrawLevelBox(i);
@@ -183,7 +190,18 @@ public class LevelManagerWindow : EditorWindow
         controlRects.Add(GUILayoutUtility.GetLastRect());
         EditorGUILayout.EndHorizontal();
 
-        e.image = (Texture2D)EditorGUILayout.ObjectField("Image", e.image, typeof(Texture2D), false);
+        // NAYA tareeqa: ObjectField address se bind hota hai, address mein save hota hai
+        Texture2D cur = string.IsNullOrEmpty(e.imageAddress)
+            ? null
+            : AssetDatabase.LoadAssetAtPath<Texture2D>(e.imageAddress);
+
+        Texture2D picked = (Texture2D)EditorGUILayout.ObjectField("Image", cur, typeof(Texture2D), false);
+
+        if (picked != cur)
+        {
+            e.imageAddress = (picked != null) ? AssetDatabase.GetAssetPath(picked) : "";
+            EnsureAddressable(picked, "Puzzles");
+        }
         controlRects.Add(GUILayoutUtility.GetLastRect());
 
         e.rows = Mathf.Max(1, EditorGUILayout.IntField("Rows", e.rows));
@@ -220,6 +238,19 @@ public class LevelManagerWindow : EditorWindow
         }
     }
 
+    // ✨ SUPERPOWER: nayi picture ko khud Addressables group mein daal deta hai
+    private static void EnsureAddressable(Texture2D tex, string groupName)
+    {
+        if (tex == null) return;
+        var settings = AddressableAssetSettingsDefaultObject.Settings;
+        if (settings == null) return;
+
+        string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(tex));
+        var group = settings.FindGroup(groupName);
+        if (group == null) group = settings.DefaultGroup;
+        settings.CreateOrMoveEntry(guid, group);
+    }
+
     private void Grow(int total)
     {
         while (config.levels.Count < total) config.levels.Add(new LevelConfig.Entry());
@@ -231,15 +262,14 @@ public class LevelManagerWindow : EditorWindow
     {
         while (config.levels.Count > pendingTrim) config.levels.RemoveAt(config.levels.Count - 1);
         SyncChapters(Mathf.CeilToInt(config.levels.Count / 25f));
-        Save();
         totalField = config.levels.Count;
         pendingTrim = -1;
     }
 
     private void SyncChapters(int needed)
     {
-        while (config.chapterImages.Count < needed) config.chapterImages.Add(null);
-        while (config.chapterImages.Count > needed) config.chapterImages.RemoveAt(config.chapterImages.Count - 1);
+        while (config.chapterAddresses.Count < needed) config.chapterAddresses.Add("");
+        while (config.chapterAddresses.Count > needed) config.chapterAddresses.RemoveAt(config.chapterAddresses.Count - 1);
     }
 
     private void Save()
@@ -248,7 +278,6 @@ public class LevelManagerWindow : EditorWindow
         AssetDatabase.SaveAssets();
     }
 
-    // ===== NEW: Progressive Difficulty Assignment =====
     private void AutoAssignDifficulty()
     {
         if (config == null || config.levels.Count == 0)
@@ -257,20 +286,19 @@ public class LevelManagerWindow : EditorWindow
             return;
         }
 
-        // Pattern definition: (difficulty, count, rows, cols)
         var pattern = new System.ValueTuple<string, int, int, int>[]
         {
-            ("Easy", 5, 3, 3),      // Levels 1-5
-            ("Medium", 1, 4, 3),    // Level 6
-            ("Easy", 4, 3, 3),      // Levels 7-10
-            ("Medium", 1, 3, 4),    // Level 11
-            ("Hard", 1, 6, 5),      // Level 12
-            ("Easy", 3, 3, 3),      // Levels 13-15
-            ("Medium", 1, 4, 3),    // Level 16
-            ("Hard", 1, 6, 5),      // Level 17
-            ("Easy", 3, 3, 3),      // Levels 18-20
-            ("Medium", 1, 3, 4),    // Level 21
-            ("Hard", 1, 6, 5),      // Level 22
+            ("Easy", 5, 3, 3),
+            ("Medium", 1, 4, 3),
+            ("Easy", 4, 3, 3),
+            ("Medium", 1, 3, 4),
+            ("Hard", 1, 6, 5),
+            ("Easy", 3, 3, 3),
+            ("Medium", 1, 4, 3),
+            ("Hard", 1, 6, 5),
+            ("Easy", 3, 3, 3),
+            ("Medium", 1, 3, 4),
+            ("Hard", 1, 6, 5),
         };
 
         int levelIndex = 0;
@@ -284,10 +312,8 @@ public class LevelManagerWindow : EditorWindow
             }
         }
 
-        // Remaining levels: cycle Easy → Medium → Hard
         while (levelIndex < config.levels.Count)
         {
-            // Easy (3 levels)
             for (int i = 0; i < 3 && levelIndex < config.levels.Count; i++)
             {
                 config.levels[levelIndex].rows = 3;
@@ -297,14 +323,12 @@ public class LevelManagerWindow : EditorWindow
 
             if (levelIndex >= config.levels.Count) break;
 
-            // Medium (1 level)
             config.levels[levelIndex].rows = 4;
             config.levels[levelIndex].cols = 3;
             levelIndex++;
 
             if (levelIndex >= config.levels.Count) break;
 
-            // Hard (1 level)
             config.levels[levelIndex].rows = 6;
             config.levels[levelIndex].cols = 5;
             levelIndex++;

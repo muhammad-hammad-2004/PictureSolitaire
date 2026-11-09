@@ -9,13 +9,13 @@ public class LevelConfig : ScriptableObject
     [System.Serializable]
     public class Entry
     {
-        public Texture2D image;
+        public string imageAddress; 
         public int rows = 2;
         public int cols = 2;
     }
 
     public List<Entry> levels = new List<Entry>();
-    public List<Texture2D> chapterImages = new List<Texture2D>();
+    public List<string> chapterAddresses = new List<string>();
 
     private static LevelConfig cached;
     public static LevelConfig Get()
@@ -49,11 +49,11 @@ public class LevelConfig : ScriptableObject
         return (level - 1) / LevelsPerChapter;
     }
 
-    public static Texture2D GetChapterImage(int chapter)
+    public static string GetChapterAddress(int chapter)
     {
         var c = Get();
-        if (c == null || chapter < 0 || chapter >= c.chapterImages.Count) return null;
-        return c.chapterImages[chapter];
+        if (c == null || chapter < 0 || chapter >= c.chapterAddresses.Count) return "";
+        return c.chapterAddresses[chapter];
     }
 
     public static Entry GetEntry(int level)

@@ -4,6 +4,10 @@ using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
 
+using System.Collections;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+
 public class GameUI : MonoBehaviour
 {
     [Header("References")]
@@ -25,6 +29,9 @@ public class GameUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI winTitle;
 
     private Texture2D currentTexture;
+
+    private AsyncOperationHandle<Texture2D> textureHandle;
+    private bool hasHandle;
 
     [Header("Settings")]
     [SerializeField] private float dealDelay = 0.06f;
@@ -93,23 +100,47 @@ public class GameUI : MonoBehaviour
         AudioManager.Instance.PlayGameMusic();
         crownHome = crown.anchoredPosition;
         dimAlpha = dim.color.a;
-        BuildBoard();
+        StartCoroutine(LoadAndBuildBoard());
     }
 
-    private void BuildBoard()
+    private IEnumerator LoadAndBuildBoard()
     {
         int dataLevel = DailySystem.PlayingDaily
             ? (DailySystem.DailyIndex % Mathf.Max(1, LevelConfig.TotalLevels)) + 1
             : level;
 
         var entry = LevelConfig.GetEntry(dataLevel);
-        if (entry == null || entry.image == null)
+        if (entry == null || string.IsNullOrEmpty(entry.imageAddress))
         {
             Debug.LogError("Level " + dataLevel + " not configured in LevelConfig!");
-            return;
+            yield break;
         }
 
-        Texture2D puzzleTexture = entry.image;
+        var handle = Addressables.LoadAssetAsync<Texture2D>(entry.imageAddress);
+        yield return handle;
+
+        if (handle.Status != AsyncOperationStatus.Succeeded || handle.Result == null)
+        {
+            Debug.LogError("Addressables se picture load nahi hui: " + entry.imageAddress);
+            yield break;
+        }
+
+        Debug.Log("✅ Picture Addressables se load hui: " + entry.imageAddress);
+
+        textureHandle = handle;
+        hasHandle = true;
+        BuildBoard(entry, handle.Result);
+    }
+    private void OnDestroy()
+    {
+        if (hasHandle)
+        {
+            Addressables.Release(textureHandle);
+            hasHandle = false;
+        }
+    }
+    private void BuildBoard(LevelConfig.Entry entry, Texture2D puzzleTexture)
+    {
         rows = Mathf.Max(1, entry.rows);
         cols = Mathf.Max(1, entry.cols);
         total = rows * cols;

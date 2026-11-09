@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Chapters
+  m_EditorClassIdentifier: 
+  m_GroupName: Chapters
+  m_Data:
+    m_SerializedData: []
+  m_GUID: 28b5154076a9b814e96420ffa6c66c74
+  m_SerializeEntries:
+  - m_GUID: 53715190e1310e84da614842bab1c84c
+    m_Address: Assets/Art/Puzzles/Chapter_1.jpg
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8b13315bc0b1e6d43b34e3e15aad0f27
+    m_Address: Assets/Art/Puzzles/Chapter_2.jpg
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: a343ea58c7cc88541a1d72021f351cfa, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 36a10430b78c73b4883c611ac42af34e, type: 2}
+    - {fileID: 11400000, guid: c3576b1d27eb3ea4a839a417ba47c592, type: 2}
